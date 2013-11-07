@@ -1,34 +1,79 @@
-#!/usr/bin/python
-
-import urllib2
-import csv
+import socket
+import sys
 import re
+import os
+import os.path
 
-url = 'http://www.iana.org/assignments/protocol-numbers/protocol-numbers-1.csv'
-listname = '_ipproto_to_str'
+class IPProtocol:
+	"""
+	attempt to create an IP protocols database from
 
-try:
-	f = urllib2.urlopen(url)
-except urllib2.HTTPError as e:
-	print "Error retrieving %s (%s %s)" % (url, e.code, e.reason)
-	exit()
-except urllib2.URLError as e:
-	print "Error retrieving %s (%s)" % (url, e.reason)
-	exit()
+	a) socket.IPPROTO_* constants and
+	b) the host system's protocols file
 
-for p in csv.reader(f):
-	# 143-252 (Unassigned)
-	if re.match("^\d+\-\d+$", p[0]):
-		begin, end = re.split("-", p[0])
-		for i in range(int(begin),int(end),1):
-			print "%s[%s] = '%s (%s)'" % (listname, i, "Unassigned", i)
-	# regular int
-	elif re.match("^\d+$", p[0]):
-		# no keyword -> Unknown (NNN)
-		if p[1] == "":
-			print "%s[%s] = '%s (%s)'" % (listname, p[0], "Unknown", p[0])
-		# plain NNN -> keyword xlate
+	"""
+	__default_protocols_file = '/etc/protocols'
+	__win32_protocols_file = 'C:\\WINDOWS\\system32\\drivers\\etc\\protocols'
+
+	def __init__(self):
+		self._protocols = {}
+		_protocolsfile = self.__default_protocols_file
+		if sys.platform.startswith('win32'):
+			_protocolsfile = self.__win32_protocols_file
+
+		### grab constants from socket.IPPROTOCOL_*
+		for c in dir(socket):
+			m = re.search("^IPPROTO_(\w+)$", c)
+			if m and len(m.group(1)) > 0:
+				try:
+					code = int(eval("socket."+c))
+					self._protocols[code] = m.group(1)
+				except AttributeError as e:
+					pass
+
+		### overlay the host system protocols database (if available)
+		try:
+			f = open(_protocolsfile,"r")
+			for line in f:
+				if re.match("^(#.*|\s+)$",line): continue
+				m = re.search("^([\w\-]+)\s+(\d+)\s+([\w\-]+)\s+.*",line)
+				if m and len(m.group(0)) > 0:
+					self._protocols[int(m.group(2))] = str((m.group(1))).upper()
+			f.close()
+
+			#for p in sorted(self._protocols.keys()): print "{0}: {1}".format(p,self._protocols[p])
+
+		except IOError as e:
+			pass
+
+	def get(self,num):
+		"""
+		get the name of the protocol given the integeer code
+		"""
+		if num in self._protocols:
+			return self._protocols[num]
 		else:
-			print "%s[%s] = '%s'" % (listname, p[0], p[1])
-	else:
-		pass
+			return None
+
+	def getbyname(self,name):
+		"""
+		get the integer code given the name
+		"""
+		_result = None
+		for i in self._protocols.items():
+			if i[1] == name: # re.match?
+				_result = i[0]
+
+		return _result
+
+	def dump(self):
+		"""
+		print a table of int: name pairs
+		"""
+		print "=== Default IP protocols database ===\n"
+		for i in self._protocols.items():
+			print "{0}: {1}".format(i[0],i[1])
+
+if __name__ == "__main__":
+	IPProtocol().dump()
+
