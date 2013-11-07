@@ -18,6 +18,7 @@ class IPProtocol:
 	def __init__(self):
 		self._protocols = {}
 		_protocolsfile = self.__default_protocols_file
+		### Cygwin symlinks /etc/protocols -> /cygdrive/C/WINDOWS/system32/drivers/etc/protocols
 		if sys.platform.startswith('win32'):
 			_protocolsfile = self.__win32_protocols_file
 
@@ -35,25 +36,24 @@ class IPProtocol:
 		try:
 			f = open(_protocolsfile,"r")
 			for line in f:
-				if re.match("^(#.*|\s+)$",line): continue
+				if re.match("^(#.*|\s*)$",line): continue
 				m = re.search("^([\w\-]+)\s+(\d+)\s+([\w\-]+)\s+.*",line)
 				if m and len(m.group(0)) > 0:
 					self._protocols[int(m.group(2))] = str((m.group(1))).upper()
 			f.close()
-
-			#for p in sorted(self._protocols.keys()): print "{0}: {1}".format(p,self._protocols[p])
 
 		except IOError as e:
 			pass
 
 	def get(self,num):
 		"""
-		get the name of the protocol given the integeer code
+		get the name of the protocol given the integer code
 		"""
+		_result = None
 		if num in self._protocols:
-			return self._protocols[num]
-		else:
-			return None
+			_result = self._protocols[num]
+
+		return _result
 
 	def getbyname(self,name):
 		"""
