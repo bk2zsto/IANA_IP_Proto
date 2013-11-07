@@ -1,8 +1,6 @@
 import socket
 import sys
 import re
-import os
-import os.path
 
 class IPProtocol:
 	"""
